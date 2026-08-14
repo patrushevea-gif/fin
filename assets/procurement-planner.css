@@ -70,6 +70,8 @@ h1{font-size:clamp(24px,3vw,34px);letter-spacing:-.035em;line-height:1.1;margin:
 .toast-stack{position:fixed;right:18px;bottom:18px;z-index:11000;display:flex;flex-direction:column;gap:8px;pointer-events:none}.toast{width:min(390px,calc(100vw - 36px));background:#101828;color:#fff;border-radius:11px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px;box-shadow:0 12px 34px rgba(14,27,64,.22);animation:toastIn .2s ease-out;pointer-events:auto}.toast .material-symbols-outlined{font-size:19px;color:#70D18E}.toast.is-error .material-symbols-outlined{color:#FF9B94}.toast>div{flex:1}.toast strong{display:block;font-size:11px;margin-bottom:3px}.toast span{display:block;font-size:9px;line-height:1.45;color:rgba(255,255,255,.68)}.toast button{border:0;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;padding:0}.toast button .material-symbols-outlined{font-size:16px;color:inherit}@keyframes toastIn{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
 
 /* Compact presentation layer: one type scale, less copy and a shorter first viewport. */
+.traffic-row.is-active{background:#F4F6FA;box-shadow:inset 0 0 0 1px #D8DEE8}
+.table-toolbar .btn:disabled{opacity:.42;cursor:default}
 :root{--bg:#F4F6F9;--surface-2:#F7F9FC;--border:#DDE3EC;--text:#1B2438;--text-2:#556078;--muted:#7C879E;--green:#159447;--soft-shadow:0 3px 12px rgba(14,27,64,.045)}
 body{background:linear-gradient(180deg,#F8FAFC 0,#F4F6F9 420px);font-size:15px;line-height:1.45;text-rendering:optimizeLegibility}
 #corp-topbar{height:52px;box-shadow:0 2px 10px rgba(14,27,64,.18)}

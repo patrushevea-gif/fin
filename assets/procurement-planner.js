@@ -302,11 +302,8 @@
     state.page = 1;
     updateFilterOptions();
     applyFilters();
-    renderKpis();
-    renderTraffic();
     renderItemNorms();
     $('#exportPlanBtn').disabled = state.results.length === 0;
-    $('#recommendationCount').textContent = String(state.results.length);
   }
 
   function updateFilterOptions() {
@@ -321,13 +318,22 @@
 
   function applyFilters() {
     const query = normalizeHeader(refs.search.value);
+    const status = refs.status.value;
+    const warehouse = refs.warehouse.value;
+    const category = refs.category.value;
     state.filtered = state.results.filter((row) => {
       const haystack = normalizeHeader([row.code, row.article, row.name, row.supplier, row.category, row.criticality, row.warehouse, row.organization].join(' '));
-      return (!query || haystack.includes(query)) && (refs.status.value === 'all' || row.status === refs.status.value) && (refs.warehouse.value === 'all' || row.warehouse === refs.warehouse.value) && (refs.category.value === 'all' || row.category === refs.category.value);
+      return (!query || haystack.includes(query)) && (status === 'all' || row.status === status) && (warehouse === 'all' || row.warehouse === warehouse) && (category === 'all' || row.category === category);
     });
     const pageCount = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
     if (state.page > pageCount) state.page = pageCount;
     renderResults();
+    renderKpis(state.filtered);
+    renderTraffic(state.filtered);
+    $('#recommendationCount').textContent = String(state.filtered.length);
+    const filtersActive = Boolean(query || status !== 'all' || warehouse !== 'all' || category !== 'all');
+    $('#resetFiltersBtn').disabled = !filtersActive;
+    $$('.traffic-row').forEach((row) => row.classList.toggle('is-active', status !== 'all' && row.dataset.statusFilter === status));
   }
 
   function renderResults() {
@@ -353,7 +359,8 @@
     } else if (state.results.length === 0) {
       refs.empty.innerHTML = '<span class="material-symbols-outlined">inventory</span><strong>Загрузите данные из 1С</strong><p>Или откройте демо-файл.</p>';
     }
-    refs.tableContext.textContent = state.results.length ? `Показано ${state.filtered.length} из ${state.results.length} позиций` : 'Загрузите данные, чтобы получить рекомендации';
+    const filtersActive = Boolean(normalizeHeader(refs.search.value) || refs.status.value !== 'all' || refs.warehouse.value !== 'all' || refs.category.value !== 'all');
+    refs.tableContext.textContent = state.results.length ? `Показано ${state.filtered.length} из ${state.results.length} позиций${filtersActive ? ' · фильтры активны' : ''}` : 'Загрузите данные, чтобы получить рекомендации';
     refs.calcDate.textContent = state.loadedAt ? `Расчёт: ${new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(state.loadedAt)}` : '';
     const pageCount = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
     refs.pagination.classList.toggle('is-hidden', state.filtered.length <= PAGE_SIZE);
@@ -362,31 +369,33 @@
     $('#nextPageBtn').disabled = state.page >= pageCount;
   }
 
-  function renderKpis() {
-    const count = (status) => state.results.filter((row) => row.status === status).length;
+  function renderKpis(rows = state.results) {
+    const count = (status) => rows.filter((row) => row.status === status).length;
     const urgent = count('urgent'), week = count('week');
-    const criticalUrgent = state.results.filter((row) => row.status === 'urgent' && normalizeHeader(row.criticality).includes('критич')).length;
-    const orderRows = state.results.filter((row) => row.orderQty > 0);
-    const excessRows = state.results.filter((row) => row.status === 'excess');
+    const criticalUrgent = rows.filter((row) => row.status === 'urgent' && normalizeHeader(row.criticality).includes('критич')).length;
+    const orderRows = rows.filter((row) => row.orderQty > 0);
+    const excessRows = rows.filter((row) => row.status === 'excess');
     const orderValue = orderRows.reduce((sum, row) => sum + row.orderValue, 0);
     const orderQty = orderRows.reduce((sum, row) => sum + row.orderQty, 0);
     const excessValue = excessRows.reduce((sum, row) => sum + row.available * row.price, 0);
-    const qualityCount = state.results.filter((row) => row.valid && row.norm).length;
-    const quality = state.results.length ? Math.round(qualityCount / state.results.length * 100) : null;
+    const qualityCount = rows.filter((row) => row.valid && row.norm).length;
+    const quality = rows.length ? Math.round(qualityCount / rows.length * 100) : null;
+    const hasData = state.results.length > 0;
     $('#kpiUrgent').textContent = String(urgent); $('#kpiWeek').textContent = String(week);
-    $('#kpiUrgentSub').textContent = urgent ? `${criticalUrgent} критичных · ${formatMoney(state.results.filter((row) => row.status === 'urgent').reduce((s, r) => s + r.orderValue, 0))}` : state.results.length ? 'рисков нет' : 'нет данных';
-    $('#kpiWeekSub').textContent = week ? 'требуют внимания' : state.results.length ? 'позиций нет' : 'нет данных';
+    $('#kpiUrgentSub').textContent = urgent ? `${criticalUrgent} критичных · ${formatMoney(rows.filter((row) => row.status === 'urgent').reduce((s, r) => s + r.orderValue, 0))}` : hasData ? 'рисков нет' : 'нет данных';
+    $('#kpiWeekSub').textContent = week ? 'требуют внимания' : hasData ? 'позиций нет' : 'нет данных';
     $('#kpiOrderValue').textContent = formatMoney(orderValue); $('#kpiOrderQty').textContent = `${formatQty(orderQty)} ед. · ${orderRows.length} поз.`;
     $('#kpiExcessValue').textContent = formatMoney(excessValue); $('#kpiExcessQty').textContent = `${excessRows.length} позиций`;
-    $('#kpiQuality').textContent = quality === null ? '—' : `${quality}%`; $('#kpiQualitySub').textContent = quality === null ? 'ожидает проверки' : quality >= 95 ? 'данные готовы к работе' : `${state.results.length - qualityCount} строк требуют проверки`;
+    $('#kpiQuality').textContent = quality === null ? '—' : `${quality}%`; $('#kpiQualitySub').textContent = quality === null ? (hasData ? 'по фильтрам нет данных' : 'ожидает проверки') : quality >= 95 ? 'данные готовы к работе' : `${rows.length - qualityCount} строк требуют проверки`;
   }
 
-  function renderTraffic() {
+  function renderTraffic(rows = state.results) {
     Object.keys(STATUS).forEach((status) => {
       const target = $(`#traffic${status.charAt(0).toUpperCase() + status.slice(1)}`);
-      if (target) target.textContent = String(state.results.filter((row) => row.status === status).length);
+      if (target) target.textContent = String(rows.filter((row) => row.status === status).length);
     });
-    refs.updatedLabel.textContent = state.loadedAt ? `Обновлено ${new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(state.loadedAt)}` : 'Ожидает загрузки';
+    const filtersActive = Boolean(normalizeHeader(refs.search.value) || refs.status.value !== 'all' || refs.warehouse.value !== 'all' || refs.category.value !== 'all');
+    refs.updatedLabel.textContent = filtersActive && state.results.length ? `Фильтр: ${rows.length} из ${state.results.length}` : state.loadedAt ? `Обновлено ${new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(state.loadedAt)}` : 'Ожидает загрузки';
   }
 
   function renderCategoryNorms() {
@@ -498,9 +507,9 @@
 
   function clearData() {
     state.items = []; state.results = []; state.filtered = []; state.fileName = ''; state.loadedAt = null; state.page = 1;
-    refs.fileSummary.classList.add('is-hidden'); refs.search.value = ''; refs.status.value = 'all';
-    updateFilterOptions(); renderResults(); renderKpis(); renderTraffic(); renderItemNorms(); setBusy(false);
-    $('#exportPlanBtn').disabled = true; $('#recommendationCount').textContent = '0';
+    refs.fileSummary.classList.add('is-hidden'); refs.search.value = ''; refs.status.value = 'all'; refs.warehouse.value = 'all'; refs.category.value = 'all';
+    updateFilterOptions(); applyFilters(); renderItemNorms(); setBusy(false);
+    $('#exportPlanBtn').disabled = true;
     showToast('Данные очищены', 'Нормативы сохранены. Можно загрузить следующую выгрузку.');
   }
 
@@ -595,7 +604,7 @@
   }
 
   function init() {
-    renderCategoryNorms(); renderItemNorms(); renderResults(); renderKpis(); renderTraffic(); bindEvents();
+    renderCategoryNorms(); renderItemNorms(); applyFilters(); bindEvents();
     setBusy(false);
     document.documentElement.dataset.procurementReady = 'true';
     setTimeout(() => showToast('Анализ готов', 'Загрузите файл или откройте демо.', 'success', 4200), 650);
