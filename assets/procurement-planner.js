@@ -155,7 +155,7 @@
 
   function buildFallbackTopbar() {
     if ($('#corp-topbar')) return;
-    document.body.insertAdjacentHTML('afterbegin', `<nav id="corp-topbar"><a href="./" class="tb-brand"><div class="tb-logo">R</div><div><div class="tb-name">Rossilber</div><div class="tb-sub">AI Company</div></div></a><div class="tb-nav"><a href="#upload"><span class="material-symbols-outlined">account_tree</span>Данные</a><a href="#traffic"><span class="material-symbols-outlined">dashboard</span>Светофор</a><a href="#tab-recommendations" class="is-active"><span class="material-symbols-outlined">analytics</span>Аналитика</a><a href="#tab-norms"><span class="material-symbols-outlined">rocket_launch</span>Нормативы</a></div><a class="tb-back" href="./"><span class="material-symbols-outlined">refresh</span><span>Сначала</span></a></nav>`);
+    document.body.insertAdjacentHTML('afterbegin', `<nav id="corp-topbar"><a href="./" class="tb-brand"><div class="tb-logo">R</div><div><div class="tb-name">Rossilber</div><div class="tb-sub">AI Company</div></div></a><div class="tb-nav"><a href="#upload"><span class="material-symbols-outlined">account_tree</span>Данные</a><a href="#traffic"><span class="material-symbols-outlined">dashboard</span>Светофор</a><a href="#tab-recommendations" class="is-active"><span class="material-symbols-outlined">analytics</span>Анализ</a><a href="#tab-norms"><span class="material-symbols-outlined">tune</span>Нормативы</a></div><a class="tb-back" href="./"><span class="material-symbols-outlined">refresh</span><span>Сначала</span></a></nav>`);
   }
 
   async function parseXlsx(file) {
@@ -351,7 +351,7 @@
       refs.empty.classList.remove('is-hidden');
       refs.empty.innerHTML = '<span class="material-symbols-outlined">search_off</span><strong>По фильтрам ничего не найдено</strong><p>Измените условия поиска или сбросьте фильтры.</p>';
     } else if (state.results.length === 0) {
-      refs.empty.innerHTML = '<span class="material-symbols-outlined">inventory</span><strong>Рекомендации появятся после загрузки</strong><p>Используйте выгрузку из 1С или запустите встроенное демо.</p>';
+      refs.empty.innerHTML = '<span class="material-symbols-outlined">inventory</span><strong>Загрузите данные из 1С</strong><p>Или откройте демо-файл.</p>';
     }
     refs.tableContext.textContent = state.results.length ? `Показано ${state.filtered.length} из ${state.results.length} позиций` : 'Загрузите данные, чтобы получить рекомендации';
     refs.calcDate.textContent = state.loadedAt ? `Расчёт: ${new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(state.loadedAt)}` : '';
@@ -374,9 +374,9 @@
     const qualityCount = state.results.filter((row) => row.valid && row.norm).length;
     const quality = state.results.length ? Math.round(qualityCount / state.results.length * 100) : null;
     $('#kpiUrgent').textContent = String(urgent); $('#kpiWeek').textContent = String(week);
-    $('#kpiUrgentSub').textContent = urgent ? `${criticalUrgent} критичных · ${formatMoney(state.results.filter((row) => row.status === 'urgent').reduce((s, r) => s + r.orderValue, 0))}` : state.results.length ? 'критических рисков нет' : 'нет загруженных данных';
-    $('#kpiWeekSub').textContent = week ? 'требуют внимания закупщика' : state.results.length ? 'позиций нет' : 'нет загруженных данных';
-    $('#kpiOrderValue').textContent = formatMoney(orderValue); $('#kpiOrderQty').textContent = `${formatQty(orderQty)} единиц · ${orderRows.length} позиций`;
+    $('#kpiUrgentSub').textContent = urgent ? `${criticalUrgent} критичных · ${formatMoney(state.results.filter((row) => row.status === 'urgent').reduce((s, r) => s + r.orderValue, 0))}` : state.results.length ? 'рисков нет' : 'нет данных';
+    $('#kpiWeekSub').textContent = week ? 'требуют внимания' : state.results.length ? 'позиций нет' : 'нет данных';
+    $('#kpiOrderValue').textContent = formatMoney(orderValue); $('#kpiOrderQty').textContent = `${formatQty(orderQty)} ед. · ${orderRows.length} поз.`;
     $('#kpiExcessValue').textContent = formatMoney(excessValue); $('#kpiExcessQty').textContent = `${excessRows.length} позиций`;
     $('#kpiQuality').textContent = quality === null ? '—' : `${quality}%`; $('#kpiQualitySub').textContent = quality === null ? 'ожидает проверки' : quality >= 95 ? 'данные готовы к работе' : `${state.results.length - qualityCount} строк требуют проверки`;
   }
@@ -540,8 +540,8 @@
     const rows = state.results.filter((row) => row.orderQty > 0);
     if (!rows.length) return showToast('План пуст', 'По текущему расчёту нет позиций с рекомендуемым заказом.', 'error');
     const header = ['Статус', 'Критичность', 'Предприятие', 'Центр снабжения', 'Код номенклатуры', 'Артикул', 'Наименование', 'Категория', 'Склад', 'Поставщик', 'Доступный остаток', 'Ед. изм.', 'Расход в день', 'Запас, дней', 'Срок поставки, дней', 'Мин. остаток', 'Рекомендуемый заказ', 'Цена закупки', 'Сумма заказа', 'Разместить до', 'Причина'];
-    downloadCsv(`План_закупок_${today.toISOString().slice(0, 10)}.csv`, [header, ...rows.map((row) => [STATUS[row.status].label, row.criticality, row.organization, row.supplyCenter, row.code, row.article, row.name, row.category, row.warehouse, row.supplier, row.available, row.unit, row.daily, row.daysCover ?? '', row.norm?.leadDays ?? '', row.norm?.minStock ?? '', row.orderQty, row.price, row.orderValue, row.deadline ? row.deadline.toISOString().slice(0, 10) : '', row.reason])]);
-    showToast('План выгружен', `${rows.length} позиций сохранено в CSV.`);
+    downloadCsv(`Анализ_закупки_материалов_и_сырья_${today.toISOString().slice(0, 10)}.csv`, [header, ...rows.map((row) => [STATUS[row.status].label, row.criticality, row.organization, row.supplyCenter, row.code, row.article, row.name, row.category, row.warehouse, row.supplier, row.available, row.unit, row.daily, row.daysCover ?? '', row.norm?.leadDays ?? '', row.norm?.minStock ?? '', row.orderQty, row.price, row.orderValue, row.deadline ? row.deadline.toISOString().slice(0, 10) : '', row.reason])]);
+    showToast('Анализ выгружен', `${rows.length} позиций сохранено в CSV.`);
   }
 
   function exportNorms() {
@@ -567,7 +567,7 @@
       setTimeout(() => loadFile(file), 0);
     });
     refs.loadDemoFile.addEventListener('click', loadDemoXlsx); refs.loadDemo.addEventListener('click', builtInDemo); $('#clearDataBtn').addEventListener('click', clearData);
-    $('#closeNoticeBtn').addEventListener('click', () => $('#introNotice').remove()); $('#helpBtn').addEventListener('click', openHelp); $('#exportPlanBtn').addEventListener('click', exportPlan);
+    $('#closeNoticeBtn')?.addEventListener('click', () => $('#introNotice')?.remove()); $('#helpBtn').addEventListener('click', openHelp); $('#exportPlanBtn').addEventListener('click', exportPlan);
     $$('[data-close-modal]').forEach((element) => element.addEventListener('click', closeHelp)); $$('[data-close-drawer]').forEach((element) => element.addEventListener('click', closeDrawer));
     $$('.tab').forEach((tab) => tab.addEventListener('click', () => switchTab(tab.dataset.tab))); $$('.subtab').forEach((tab) => tab.addEventListener('click', () => switchNormView(tab.dataset.normView)));
     [refs.search, refs.status, refs.warehouse, refs.category].forEach((control) => control.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', () => { state.page = 1; applyFilters(); }));
@@ -598,7 +598,7 @@
     renderCategoryNorms(); renderItemNorms(); renderResults(); renderKpis(); renderTraffic(); bindEvents();
     setBusy(false);
     document.documentElement.dataset.procurementReady = 'true';
-    setTimeout(() => showToast('Планировщик закупок готов', 'Загрузите XLSX/CSV из 1С или запустите встроенное демо.', 'success', 6500), 650);
+    setTimeout(() => showToast('Анализ готов', 'Загрузите файл или откройте демо.', 'success', 4200), 650);
   }
 
   function reportStartupError(error) {
