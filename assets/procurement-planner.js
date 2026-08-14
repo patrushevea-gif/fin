@@ -53,6 +53,10 @@
     price: ['цена закупки', 'закупочная цена', 'цена', 'себестоимость']
   };
 
+  const cloneData = (value) => typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : JSON.parse(JSON.stringify(value));
+
   const state = {
     items: [],
     results: [],
@@ -64,10 +68,6 @@
     loadedAt: null,
     selectedId: null
   };
-
-  const cloneData = (value) => typeof structuredClone === 'function'
-    ? structuredClone(value)
-    : JSON.parse(JSON.stringify(value));
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
