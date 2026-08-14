@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Планирование закупок по движению товарных остатков из 1С">
+  <title>Россильбер | Постатейный анализ затрат — планирование закупок</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/procurement-planner.css">
+</head>
+<body>
+  <div class="app-shell">
+    <main class="wrap">
+      <section class="page-head" aria-labelledby="pageTitle">
+        <div>
+          <div class="crumb"><a href="./">Демонстрационный стенд</a><span>›</span><span>MVP-проекты</span><span>›</span><span>Планирование закупок</span></div>
+          <div class="hero-badge"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span> Операционная эффективность</div>
+          <h1 id="pageTitle">Постатейный анализ затрат</h1>
+          <p class="lead">Планирование закупок по фактическому движению товарных остатков из 1С: что заказать, когда разместить заказ и в каком количестве.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn btn-ghost" id="helpBtn" type="button" data-tip="Краткая инструкция и правила расчёта"><span class="material-symbols-outlined">help</span>Как пользоваться</button>
+          <button class="btn btn-primary" id="exportPlanBtn" type="button" disabled data-tip="Выгрузить рассчитанный план закупок в CSV"><span class="material-symbols-outlined">download</span>Выгрузить план</button>
+        </div>
+      </section>
+
+      <section class="notice" id="introNotice" aria-label="Краткое описание сервиса">
+        <span class="notice-icon material-symbols-outlined" aria-hidden="true">tips_and_updates</span>
+        <div><strong>Сервис превращает выгрузку из 1С в готовый план действий.</strong><span> Загрузите XLSX или CSV — система применит нормативы, рассчитает точку заказа и подсветит риски дефицита.</span></div>
+        <button class="icon-btn" id="closeNoticeBtn" type="button" aria-label="Скрыть описание" data-tip="Скрыть это сообщение"><span class="material-symbols-outlined">close</span></button>
+      </section>
+
+      <section class="workspace-grid" id="upload">
+        <article class="card upload-card">
+          <div class="section-heading">
+            <div><div class="section-kicker">Шаг 1</div><h2>Загрузка данных из 1С</h2></div>
+            <span class="data-state" id="dataState"><span class="state-dot"></span>Инициализация…</span>
+          </div>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Загрузить таблицу движения товаров">
+            <div class="drop-icon"><span class="material-symbols-outlined">upload_file</span></div>
+            <div class="drop-copy"><strong>Перетащите таблицу сюда</strong><span>XLSX, CSV или TSV · первая строка должна содержать заголовки</span></div>
+            <input class="native-file-input" type="file" id="fileInput" aria-label="Выбрать файл из Finder" data-tip="Открыть Finder и выбрать файл выгрузки" accept=".xlsx,.csv,.tsv,.txt,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          </div>
+          <div class="upload-progress is-hidden" id="uploadProgress" aria-live="assertive"><span class="upload-spinner" aria-hidden="true"></span><span id="uploadProgressText">Читаю файл…</span></div>
+          <div class="upload-footer">
+            <div class="upload-test-actions">
+              <button class="text-btn" id="loadDemoFileBtn" type="button" data-tip="Загрузить мини-файл XLSX с того же адреса и проверить весь конвейер обработки"><span class="material-symbols-outlined">fact_check</span>Проверить XLSX</button>
+              <button class="text-btn muted-action" id="loadBuiltInDemoBtn" type="button" data-tip="Заполнить сервис встроенными демонстрационными данными без чтения файла"><span class="material-symbols-outlined">play_circle</span>Демо без файла</button>
+            </div>
+            <div class="privacy-note" data-tip="Файл обрабатывается JavaScript-кодом прямо на этом устройстве"><span class="material-symbols-outlined">lock</span>Данные обрабатываются только в браузере</div>
+          </div>
+          <div class="file-summary is-hidden" id="fileSummary" aria-live="polite">
+            <span class="file-mark material-symbols-outlined">table_view</span>
+            <div><strong id="fileName">—</strong><span id="fileMeta">—</span></div>
+            <button class="icon-btn" id="clearDataBtn" type="button" aria-label="Удалить загруженные данные" data-tip="Очистить текущую загрузку"><span class="material-symbols-outlined">delete</span></button>
+          </div>
+        </article>
+
+        <article class="card traffic-card" id="traffic">
+          <div class="section-heading compact">
+            <div><div class="section-kicker">Шаг 2</div><h2>Светофор закупок</h2></div>
+            <span class="updated-label" id="updatedLabel">Ожидает загрузки</span>
+          </div>
+          <div class="traffic-stack" id="trafficStack">
+            <button class="traffic-row" type="button" data-status-filter="urgent" data-tip="Запаса недостаточно, чтобы дождаться поставки. Заказ нужно разместить немедленно."><span class="light urgent"></span><span><strong>Заказать срочно</strong><small>Дефицит наступит раньше поставки</small></span><b id="trafficUrgent">0</b></button>
+            <button class="traffic-row" type="button" data-status-filter="week" data-tip="Точка заказа будет достигнута в ближайшие 7 дней."><span class="light week"></span><span><strong>Заказать на неделе</strong><small>Осталось не более 7 дней</small></span><b id="trafficWeek">0</b></button>
+            <button class="traffic-row" type="button" data-status-filter="plan" data-tip="Закупка понадобится через 8–21 день. Её можно включить в план."><span class="light plan"></span><span><strong>Запланировать</strong><small>Горизонт от 8 до 21 дня</small></span><b id="trafficPlan">0</b></button>
+            <button class="traffic-row" type="button" data-status-filter="sufficient" data-tip="Запаса достаточно, закупка в текущем горизонте не требуется."><span class="light sufficient"></span><span><strong>Запас достаточный</strong><small>Заказывать пока не нужно</small></span><b id="trafficSufficient">0</b></button>
+            <button class="traffic-row" type="button" data-status-filter="excess" data-tip="Потребления нет либо запас существенно превышает целевой уровень."><span class="light excess"></span><span><strong>Не закупать / излишек</strong><small>Проверьте замороженный запас</small></span><b id="trafficExcess">0</b></button>
+          </div>
+        </article>
+      </section>
+
+      <section class="kpi-grid" aria-label="Сводные показатели">
+        <article class="kpi kpi-danger" data-tip="Позиции, по которым заказ нужно разместить немедленно"><span class="kpi-label">Срочные позиции</span><strong id="kpiUrgent">0</strong><small id="kpiUrgentSub">нет загруженных данных</small></article>
+        <article class="kpi kpi-warning" data-tip="Позиции со сроком размещения заказа не более 7 дней"><span class="kpi-label">Заказать за 7 дней</span><strong id="kpiWeek">0</strong><small id="kpiWeekSub">нет загруженных данных</small></article>
+        <article class="kpi" data-tip="Стоимость рекомендованного заказа по загруженным закупочным ценам"><span class="kpi-label">Потребность в закупке</span><strong id="kpiOrderValue">0 ₽</strong><small id="kpiOrderQty">0 единиц к заказу</small></article>
+        <article class="kpi" data-tip="Стоимость доступного запаса по позициям без движения или с существенным превышением нормы"><span class="kpi-label">Заморожено в излишках</span><strong id="kpiExcessValue">0 ₽</strong><small id="kpiExcessQty">0 позиций</small></article>
+        <article class="kpi" data-tip="Доля строк, для которых найден норматив и заполнены ключевые поля"><span class="kpi-label">Качество данных</span><strong id="kpiQuality">—</strong><small id="kpiQualitySub">ожидает проверки</small></article>
+      </section>
+
+      <nav class="tabs" aria-label="Разделы инструмента">
+        <button class="tab is-active" type="button" data-tab="recommendations"><span class="material-symbols-outlined">fact_check</span>Рекомендации<span class="tab-count" id="recommendationCount">0</span></button>
+        <button class="tab" type="button" data-tab="norms"><span class="material-symbols-outlined">tune</span>Нормативы</button>
+        <button class="tab" type="button" data-tab="methodology"><span class="material-symbols-outlined">functions</span>Методика</button>
+      </nav>
+
+      <section class="tab-panel is-active" id="tab-recommendations" data-section="results">
+        <article class="card data-card">
+          <div class="table-toolbar">
+            <label class="search-field" data-tip="Поиск по коду, артикулу, наименованию или поставщику"><span class="material-symbols-outlined">search</span><input type="search" id="searchInput" placeholder="Поиск по номенклатуре..."></label>
+            <select id="statusFilter" aria-label="Фильтр по статусу" data-tip="Показать позиции выбранного статуса">
+              <option value="all">Все статусы</option><option value="urgent">Заказать срочно</option><option value="week">Заказать на неделе</option><option value="plan">Запланировать</option><option value="sufficient">Запас достаточный</option><option value="excess">Не закупать / излишек</option><option value="missing">Нет норматива</option>
+            </select>
+            <select id="warehouseFilter" aria-label="Фильтр по складу" data-tip="Ограничить анализ выбранным складом"><option value="all">Все склады</option></select>
+            <select id="categoryFilter" aria-label="Фильтр по категории" data-tip="Ограничить анализ выбранной категорией"><option value="all">Все категории</option></select>
+            <button class="btn btn-ghost btn-sm" id="resetFiltersBtn" type="button" data-tip="Очистить поиск и все фильтры"><span class="material-symbols-outlined">filter_alt_off</span>Сбросить</button>
+          </div>
+          <div class="table-context"><span id="tableContext">Загрузите данные, чтобы получить рекомендации</span><span class="calculation-date" id="calculationDate"></span></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr>
+                <th data-tip="Итоговая рекомендация по сроку закупки">Статус</th>
+                <th data-tip="Код, артикул и наименование из 1С">Номенклатура</th>
+                <th data-tip="Категория, по которой подобран базовый норматив">Категория</th>
+                <th data-tip="Фактический остаток минус резерв">Доступно</th>
+                <th data-tip="Средний расход за один день: расход за период / число дней">Расход / день</th>
+                <th data-tip="На сколько дней хватит доступного остатка с учётом товара в пути">Запас, дней</th>
+                <th data-tip="Нормативный срок от размещения заказа до поступления">Поставка</th>
+                <th data-tip="Количество, необходимое для восстановления целевого уровня запаса с округлением до упаковки">Заказать</th>
+                <th data-tip="Оценка заказа: рекомендуемое количество × закупочная цена">Сумма</th>
+                <th data-tip="Последняя безопасная дата размещения заказа">Разместить до</th>
+                <th><span class="sr-only">Действия</span></th>
+              </tr></thead>
+              <tbody id="resultBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState"><span class="material-symbols-outlined">inventory</span><strong>Рекомендации появятся после загрузки</strong><p>Используйте выгрузку из 1С или запустите встроенное демо.</p></div>
+          </div>
+          <div class="pagination is-hidden" id="pagination">
+            <span id="pageInfo">—</span>
+            <div><button class="icon-btn" id="prevPageBtn" type="button" aria-label="Предыдущая страница"><span class="material-symbols-outlined">chevron_left</span></button><button class="icon-btn" id="nextPageBtn" type="button" aria-label="Следующая страница"><span class="material-symbols-outlined">chevron_right</span></button></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="tab-panel" id="tab-norms" data-section="norms">
+        <article class="card norms-card">
+          <div class="section-heading">
+            <div><div class="section-kicker">Управление правилами</div><h2>Нормативы запасов и поставки</h2><p>Категорийные значения применяются автоматически. После загрузки файла любую позицию можно настроить индивидуально.</p></div>
+            <div class="norm-actions"><button class="btn btn-ghost btn-sm" id="exportNormsBtn" type="button" data-tip="Выгрузить категорийные и индивидуальные нормативы в CSV"><span class="material-symbols-outlined">download</span>Экспорт</button><button class="btn btn-ghost btn-sm" id="resetNormsBtn" type="button" data-tip="Вернуть исходные предустановленные нормативы"><span class="material-symbols-outlined">restart_alt</span>По умолчанию</button></div>
+          </div>
+          <div class="subtabs"><button class="subtab is-active" type="button" data-norm-view="categories">По категориям</button><button class="subtab" type="button" data-norm-view="items">По материалам <span id="overrideCount">0</span></button></div>
+          <div class="norm-view is-active" id="norm-categories">
+            <div class="norm-hint"><span class="material-symbols-outlined">info</span><span><strong>Предустановленные нормативы уже заполнены.</strong> Изменения применяются к расчётам сразу и сохраняются на этом устройстве.</span></div>
+            <div class="table-wrap"><table class="data-table norms-table"><thead><tr><th data-tip="Категория номенклатуры из 1С">Категория</th><th data-tip="Запас, ниже которого нельзя опускаться">Мин. остаток</th><th data-tip="Время от заказа до поступления на склад">Срок поставки, дней</th><th data-tip="На сколько дней потребления восстанавливать запас">Целевой запас, дней</th><th data-tip="Минимально допустимое количество в одном заказе">Мин. партия</th><th data-tip="Округление рекомендуемого заказа">Упаковка</th><th></th></tr></thead><tbody id="categoryNormBody"></tbody></table></div>
+            <button class="text-btn add-norm-btn" id="addCategoryBtn" type="button" data-tip="Добавить правило для новой категории"><span class="material-symbols-outlined">add_circle</span>Добавить категорию</button>
+          </div>
+          <div class="norm-view" id="norm-items">
+            <div class="material-norm-toolbar"><label class="search-field"><span class="material-symbols-outlined">search</span><input type="search" id="normSearchInput" placeholder="Найти материал..."></label><span id="materialNormSummary">Сначала загрузите таблицу</span></div>
+            <div class="table-wrap"><table class="data-table norms-table material-norms"><thead><tr><th>Материал</th><th>Категория</th><th>Мин. остаток</th><th>Поставка, дней</th><th>Целевой запас, дней</th><th>Источник</th><th></th></tr></thead><tbody id="itemNormBody"></tbody></table></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="tab-panel" id="tab-methodology">
+        <div class="method-grid">
+          <article class="card method-card"><div class="method-no">01</div><h3>Среднесуточный расход</h3><code>Расход за период ÷ количество дней</code><p>В расход не должны попадать внутренние перемещения между складами.</p></article>
+          <article class="card method-card"><div class="method-no">02</div><h3>Точка заказа</h3><code>Мин. остаток + расход/день × срок поставки</code><p>Показывает уровень, при котором новый заказ нужно уже разместить.</p></article>
+          <article class="card method-card"><div class="method-no">03</div><h3>Рекомендуемый заказ</h3><code>Целевой запас − доступно − в пути</code><p>Результат округляется до упаковки и не может быть меньше минимальной партии.</p></article>
+        </div>
+        <article class="card formula-card"><div><div class="section-kicker">Логика светофора</div><h2>Почему позиция получает конкретный цвет</h2></div><div class="formula-flow"><span>Текущий остаток</span><i>−</i><span>Резерв</span><i>+</i><span>Товар в пути</span><i>−</i><span>Расход до поставки</span><i>=</i><strong>Прогнозный остаток</strong></div><p>Если прогнозный остаток к ожидаемой дате поставки окажется ниже минимального, позиция становится красной. Для каждой строки доступно подробное объяснение расчёта.</p></article>
+      </section>
+    </main>
+  </div>
+
+  <aside class="drawer" id="detailDrawer" aria-hidden="true" aria-labelledby="drawerTitle">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <div class="drawer-panel">
+      <div class="drawer-head"><div><div class="section-kicker">Объяснение рекомендации</div><h2 id="drawerTitle">—</h2><p id="drawerCode">—</p></div><button class="icon-btn" type="button" data-close-drawer aria-label="Закрыть"><span class="material-symbols-outlined">close</span></button></div>
+      <div id="drawerContent"></div>
+    </div>
+  </aside>
+
+  <div class="modal" id="helpModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-panel">
+      <div class="modal-head"><div><div class="section-kicker">Краткая инструкция</div><h2 id="helpTitle">Как получить план закупок</h2></div><button class="icon-btn" type="button" data-close-modal aria-label="Закрыть"><span class="material-symbols-outlined">close</span></button></div>
+      <ol class="help-steps"><li><b>Выгрузите данные из 1С</b><span>Нужны код, наименование, категория, склад, период, расход и текущий остаток. Резерв, товар в пути и цена улучшают точность.</span></li><li><b>Загрузите XLSX или CSV</b><span>Сервис автоматически распознает русские заголовки и применит норматив категории.</span></li><li><b>Проверьте красные и оранжевые позиции</b><span>Откройте строку, чтобы увидеть расчёт, затем выгрузите готовый план закупки.</span></li><li><b>Уточняйте нормативы</b><span>Можно изменить правила категории или задать индивидуальные значения конкретному материалу.</span></li></ol>
+      <div class="required-fields"><strong>Минимальные поля</strong><code>Код номенклатуры · Наименование · Категория · Склад · Период, дней · Расход · Текущий остаток</code></div>
+      <button class="btn btn-primary full-btn" type="button" data-close-modal>Понятно, начать работу</button>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="./assets/jszip.min.js"></script>
+  <script src="./assets/xlsx-parser.js"></script>
+  <script src="./assets/procurement-planner.js"></script>
+</body>
+</html>
